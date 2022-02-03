@@ -1,0 +1,367 @@
+import numpy as np 
+import matplotlib.pyplot as plt
+import scipy
+from numpy import random 
+from mpl_toolkits import mplot3d
+
+random.seed(666)
+solarmass=1.98 * 10**30
+parsec=3.086e+16
+pointsize=10
+n=100 #number of particles
+E=1 #dampening factor
+G=6.67408*10**(-11)  #gravitational constant
+
+simtime=1000000*365*24*60*60
+dt=simtime//100
+
+timesteps=simtime//dt
+
+
+R= parsec 
+
+
+pos=np.zeros((n,3)) #zero array for positions set up as [[x,y,z],[x,y,z],....]
+
+
+mass=np.zeros((n,3)) #zero array for masses
+vel=np.zeros((n,3)) #zero array for velocity
+force=np.zeros((n,3)) #zero array for force
+
+potential=np.array([0])
+
+massval=1*solarmass
+mass=np.zeros((n,3)) #zero array for masses
+mass+=massval
+mass2=np.zeros(n)
+mass2+=massval
+
+
+def flatdist(array):
+    xdist=array[0]
+    ydist=array[1]
+    zdist=array[2]
+        
+    dist=np.sqrt(xdist**2 + ydist**2 +zdist**2)
+
+    return np.array([dist])
+
+#SWAP TO POLAR
+def inSphere():
+    within=False
+    while within==False:
+        rand=random.random()
+        x=2*R*rand-R
+        rand=random.random()
+        y=2*R*rand-R
+        rand=random.random()
+        z=2*R*rand-R 
+        if flatdist([x,y,z])<=R:
+            within=True
+    return [x,y,z]
+
+def genPos():
+    for i in range(0,len(pos)):
+
+        pos[i]=inSphere()
+    return pos
+
+pos=genPos()
+
+fig1 = plt.figure(1)
+ax = plt.axes(projection='3d')
+
+
+initposx=[[0.0]]*n
+initposy=[[0.0]]*n
+initposz=[[0.0]]*n
+
+posx=np.zeros((n,timesteps))
+posy=np.zeros((n,timesteps))
+posz=np.zeros((n,timesteps))
+
+for i in range(0,len(pos)):
+    initposx[i]=pos[i][0]
+    posx[i][0]=pos[i][0]
+    initposy[i]=(pos[i][1])
+    posy[i][0]=pos[i][1]
+    initposz[i]=(pos[i][2])
+    posz[i][0]=pos[i][2]
+
+
+initposx=np.array(initposx)/(parsec)
+initposy=np.array(initposy)/(parsec)
+initposz=np.array(initposz)/(parsec)
+
+
+ax.scatter3D(initposx,initposy,initposz)
+ax.set_title("Initial Positions")
+ax.set_xlabel("X (parsecs)")
+ax.set_ylabel("Y (parsecs)")
+ax.set_zlabel("Z (parsecs)")
+
+#MAKE AN ARRAY FOR NPARTICLEX, NPARTICLEY, NPARTICLEZ laid out so nparticlex[0]=all x x cords of particle 0, for loop through and plot x[i],y[i],z[i]
+
+# have conditioning for velocities, do this later 
+
+
+
+def forces(m1, m2, x1, x2): #finds the force between 2 particles
+
+    temp=-1*((m1*m2)*(x1-x2))/((((flatdist((x1-x2)))**2)+E**2)**1.5) 
+    F=G*temp
+    
+    return F
+
+def potentials(m1, m2, x1, x2):
+    U=-G*(m1*m2)/(flatdist(x1-x2))
+    return U
+
+def kineticEnergySingle(m,v):
+    E=0.5*m*v**2
+    return E
+
+def kineticEnergyTotal(mass,currentv):
+    totalE=0
+    
+    
+    
+    for i in range(len(mass)):
+        flatv=flatdist(currentv[i])
+        
+        totalE += kineticEnergySingle(mass[i], flatv)
+        
+    return totalE
+    
+
+
+kineticEnergys=[]
+
+
+currentv=vel
+currentpos=pos
+
+def totalForcePotential():
+    force=np.zeros((n,3)) #zero array for force
+    potential=np.array([0.0])
+    for x in range(n):
+        
+        for i in range(x,n):
+            
+            if i!=x:
+                
+                
+                xiforce=forces(mass[x][0],mass[i][0],currentpos[x],currentpos[i])
+            
+                force[x]+= xiforce
+                force[i]+= xiforce*-1
+                
+                xipotential=potentials(mass[x][0],mass[i][0],currentpos[x],currentpos[i])
+                
+                potential+=xipotential
+    
+    return force, potential
+
+times=[0]
+
+
+def distBetween(pos1, pos2):
+    seperation=pos1-pos2
+    
+    return flatdist(seperation)
+
+potentialsArray=[]
+
+#CHANGE TO WHILE TIMES[-1]<SIMULATIONTIME AND WORK OUT THE SIMULATION TIME GIVEN A NUMBER OF ORBITS
+for j in range(0,timesteps):
+
+    
+    forcePotential=totalForcePotential()
+    vplushalf = currentv + ((forcePotential[0])/mass)*dt    
+    newpos= currentpos + vplushalf*dt
+    
+    kineticEnergys.append(kineticEnergyTotal(mass2,currentv))
+    potentialsArray.append(forcePotential[1])
+    
+    #print(currentpos)
+    currentpos =newpos
+    currentv =vplushalf
+    times.append((times[-1])+dt)
+    for i in range(0,len(mass2)):
+        #print(currentpos.shape)
+        posx[i][j]=currentpos[i][0]
+        posy[i][j]=currentpos[i][1]
+        posz[i][j]=currentpos[i][2]
+        #print(currentpos[i][0])
+        #print(posx[i][-1])
+    #print(currentpos[2][0])   
+    
+"""
+print("posx",posx, len(posx))
+print("posy",posy, len(posy))
+print("posz",posz, len(posz))
+print("ZEROOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",posx[0])
+"""
+#print(posx[0][0:5])
+
+kineticEnergys.append(kineticEnergyTotal(mass2,currentv))
+potentialsArray.append(totalForcePotential()[1])
+    
+totalEnergy=np.array(potentialsArray)+np.array(kineticEnergys)
+
+
+timeYears=np.array(times)/(3.154e+7)
+
+
+
+
+#NEED TO GET FINAL VALUE IN EACH ARRAY AND SAVE AS FINAL
+finalx=[]
+finaly=[]
+finalz=[]
+
+#print(posx[:][-1])
+for i in range (0,len(posx)):
+    finalx.append(posx[i][-1])
+    #print(posx[i][-1])
+    finaly.append(posy[i][-1])
+    finalz.append(posz[i][-1])
+
+finalx=np.array(finalx)/(parsec)
+finaly=np.array(finaly)/(parsec)
+finalz=np.array(finalz)/(parsec)
+
+
+#FINAL 3D PLOT
+fig20=plt.figure(20)
+finalpaths = plt.axes(projection='3d')
+finalpaths.scatter(finalx,finaly,finalz, s=10)
+for i in range(0,len(posx)):
+    finalpaths.plot(posx[i]/parsec,posy[i]/parsec,posz[i]/parsec)
+finalpaths.set_title("Final paths of the particles")
+finalpaths.set_xlabel("X pos (parsecs)")
+finalpaths.set_ylabel("Y pos (parsecs)")
+finalpaths.set_zlabel("Z pos (parsecs)")
+finalpaths.set_xlim(-2,2)
+finalpaths.set_ylim(-2,2)
+finalpaths.set_zlim(-2,2)
+
+
+fig3=plt.figure(3)
+plt.scatter(initposx,initposy, s=pointsize)
+plt.xlabel("X (parsecs)")
+plt.ylabel("Y (parsecs)")
+plt.title("XY Initial")
+
+fig4=plt.figure(4)
+plt.scatter(finalx,finaly, s=pointsize)
+plt.xlabel("X (parsecs)")
+plt.ylabel("Y (parsecs)")
+plt.title("XY Final")
+plt.xlim(-2,2)
+plt.ylim(-2,2)
+for i in range(0,len(posx)):
+    plt.plot(posx[i]/parsec,posy[i]/parsec)
+
+fig5=plt.figure(5)
+plt.scatter(initposx,initposz, s=pointsize)
+plt.xlabel("X (parsecs)")
+plt.ylabel("Z (parsecs)")
+plt.title("XZ Initial")
+
+fig6=plt.figure(6)
+plt.scatter(finalx,finalz, s=pointsize)
+plt.xlabel("X (parsecs)")
+plt.ylabel("Z (parsecs)")
+plt.title("XZ Final")
+plt.xlim(-2,2)
+plt.ylim(-2,2)
+for i in range(0,len(posx)):
+    plt.plot(posx[i]/parsec,posz[i]/parsec)
+
+
+
+fig7=plt.figure(7)
+plt.scatter(initposy,initposz, s=pointsize)
+plt.xlabel("Y (parsecs)")
+plt.ylabel("Z (parsecs)")
+plt.title("YZ Initial")
+
+fig8=plt.figure(8)
+plt.scatter(finaly,finalz, s=pointsize)
+plt.xlabel("Y (parsecs)")
+plt.ylabel("Z (parsecs)")
+plt.title("YZ Final")
+plt.xlim(-2,2)
+plt.ylim(-2,2)
+for i in range(0,len(posx)):
+    plt.plot(posy[i]/parsec,posz[i]/parsec)
+
+
+#kineticEnergys plot
+1
+fig9=plt.figure(9)
+ax9=fig9.add_subplot(111)
+
+relativeKinetic=kineticEnergys/kineticEnergys[0]
+
+ax9.plot(timeYears,kineticEnergys)
+ax9.set_xlabel("Time (Yr)")
+ax9.set_ylabel("Total Kinetic Energy of the System (J)")
+#ax9.set_ylim(0,3e+35)
+ax9.set_title("Kinetic Energy")
+plt.show()
+
+#potentialsArray plot
+fig10=plt.figure(10)
+ax10=fig10.add_subplot(111)
+
+relativePotentials=(potentialsArray/potentialsArray[0])*-1
+
+ax10.plot(timeYears,potentialsArray)
+ax10.set_xlabel("Time (Yr)")
+ax10.set_ylabel("Total Potential Energy of the System (J)")
+ax10.set_title("Potential Energy")
+#ax5.set_ylim(-4e+35,-2.5e+35)
+plt.show()
+
+
+#Total Energy Over Time
+fig11=plt.figure(11)
+ax11=fig11.add_subplot(111)
+
+relativeTotal=totalEnergy/totalEnergy[0]
+
+ax11.plot(timeYears,totalEnergy)
+ax11.set_xlabel("Time (Yr)")
+ax11.set_ylabel("Total Energy of the System (J)")
+ax11.set_title("Total Energy")
+#ax6.set_ylim(-2.0e+35,0)
+plt.show()
+
+#test virial
+virial=2*np.array(kineticEnergys) + np.array(potentialsArray)
+fig12=plt.figure(12)
+ax12=fig12.add_subplot(111)
+
+ax12.plot(timeYears,virial)
+ax12.set_xlabel("Time (Yr)")
+ax12.set_ylabel("2K+U")
+ax12.set_title("Virial Theorem")
+#ax6.set_ylim(-2.0e+35,0)
+plt.show()
+#7 min talk on the 12th then 3 mins questions, we will find out more, 
+"""
+#Sun Pos
+fig7=plt.figure(7)
+ax7=fig7.add_subplot(111)
+ax7.set_aspect('equal')
+ax7.scatter(sunxsAU[0],sunysAU[0])
+ax7.plot(sunxsAU,sunysAU)
+ax7.set_xlabel("Sun X (AU)")
+ax7.set_ylabel("Sun Y (AU)")
+ax7.set_title("Sun Pos")
+
+plt.show()
+# DIVIDE THE KE AND POT E BY THE FIRST DATA POINT
+"""
